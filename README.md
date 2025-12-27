@@ -18,7 +18,7 @@
   * **Klipper ID Injection**: Injects `M555 S={ID}` into the start G-code, enabling precise spool tracking in Klipper macros.
 * **Deployment Workflow**:
   * Supports automated installation to Slicer directories.
-  * Includes cleaning utilities to purge old configurations.
+  * **Multi-User Support**: Can optionally sync profiles to all user accounts (e.g., logged-in users) found in the slicer folder.
 
 ## 🚀 Prerequisites
 
@@ -38,23 +38,23 @@ Fetches data and generates profiles in the local `spools/` folder. Safe to run f
 python spoolman_syncer.py --ip 192.168.1.50 --port 7912
 ```
 
-### 2. Install to Slicer
-Generates profiles and installs them directly to the Slicer's user directory.
+### 2. Install to Slicer (Default Profile)
+Generates profiles and installs them to the `default` user directory.
 ```bash
 python spoolman_syncer.py --ip 192.168.1.50 --apply orca
-# OR
-python spoolman_syncer.py --ip 192.168.1.50 --apply bambu
 ```
 
-### 3. Clean Install (Recommended)
+### 3. Install to ALL Users (Advanced)
+If you are logged into the slicer (e.g. via Bambu cloud), your files are stored in a numbered folder, not `default`. Use this flag to sync to ALL user folders found.
+```bash
+python spoolman_syncer.py --ip 192.168.1.50 --apply bambu --force-all-user
+```
+
+### 4. Clean Install (Recommended)
 Use `--delete-first` to wipe the Slicer's filament folder before installing. This ensures spools deleted from Spoolman are removed from the Slicer.
 ```bash
 python spoolman_syncer.py --ip 192.168.1.50 --apply orca --delete-first
 ```
-
-### 4. Maintenance Commands
-* `--clean-spool`: Deletes the local `spools/` output folder before running.
-* `--clean`: **Factory Reset**. Deletes the tool source, the virtual environment, and output files. Use this if the script behaves unexpectedly or you want to reinstall the tool.
 
 ### Argument Reference
 
@@ -64,6 +64,7 @@ python spoolman_syncer.py --ip 192.168.1.50 --apply orca --delete-first
 | `--port` | `7912` | Spoolman Server Port. |
 | `--apply` | `None` | Target Slicer (`orca` or `bambu`). |
 | `--delete-first` | `False` | Wipes target Slicer directory before copying. |
+| `--force-all-user`| `False` | Deploys to ALL subfolders in the user directory (e.g. `user/12345`). |
 | `--clean-spool` | `False` | Clears local generated files before execution. |
 | `--clean` | `False` | Deletes all tool/env folders and exits. |
 
