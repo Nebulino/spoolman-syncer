@@ -1,76 +1,79 @@
 # Spoolman Syncer
 
-**Spoolman Syncer** is an intelligent automation wrapper for the [spoolman2slicer](https://github.com/bofh69/spoolman2slicer) tool. It completely automates the process of syncing your **Spoolman** filament inventory to **OrcaSlicer** or **BambuStudio**, handling everything from environment setup to Klipper integration.
+**Spoolman Syncer** is an advanced automation wrapper for the [spoolman2slicer](https://github.com/bofh69/spoolman2slicer) utility. It bridges the gap between your **Spoolman** inventory and **OrcaSlicer/BambuStudio**, providing a "zero-configuration" experience with enhanced Klipper integration.
 
-## 🖨️ Hardware & Roadmap
+## 🖨️ Compatibility & Roadmap
 
-* **Principal Use Case**: This tool is currently optimized and tested principally for the **Anycubic Kobra S1**.
-* **Future Updates**: I am planning to add specific configurations and optimizations for **Bambu Lab P2S** and **H2D** printers in upcoming releases, as I use these machines alongside the Kobra.
+* **Principal Use Case**: Currently validated and optimized for the **Anycubic Kobra S1**.
+* **Roadmap**: Specific configurations for **Bambu Lab P2S** and **H2D** are planned for upcoming releases.
 
-## ✨ Features
+## ✨ Key Features
 
-* **Zero-Config Installation**: You don't need to manually install the generator tool or Python libraries. The script automatically:
-    * Downloads the generator repository if missing.
-    * Creates a local isolated `venv` (virtual environment).
-    * Installs all necessary dependencies.
-    * **Smart Updates**: Automatically detects if dependencies change in future versions and updates the environment.
-* **Smart Material Mapping**: Automatically fixes JSON inheritance issues (e.g., mapping "PLA+/Pro" to "Generic PLA" to prevent slicer errors).
-* **Klipper ID Injection**: Injects a custom `M555 S={ID}` G-code command into every filament start G-code. This allows Klipper to automatically track exactly which spool you are using.
-* **Auto-Deployment**: Can automatically copy the generated profiles directly to your slicer's configuration folder.
+* **Autonomous Environment Management**:
+  * **Zero Dependencies**: You only need Python installed. The script automatically fetches the generator tool, creates an isolated `.venv`, and installs requirements.
+  * **Self-Healing**: Automatically detects if dependencies are missing or outdated and updates the environment without user intervention.
+* **Intelligent Post-Processing**:
+  * **Crash Prevention**: Robustly handles special characters in Spoolman names (e.g., `PLA+/Pro`) that normally cause generator crashes.
+  * **Material Mapping**: Automatically corrects JSON inheritance (e.g., mapping custom "PLA+/Pro" types to standard "Generic PLA") to prevent Slicer import errors.
+  * **Klipper ID Injection**: Injects `M555 S={ID}` into the start G-code, enabling precise spool tracking in Klipper macros.
+* **Deployment Workflow**:
+  * Supports automated installation to Slicer directories.
+  * Includes cleaning utilities to purge old configurations.
 
 ## 🚀 Prerequisites
 
-* **Python 3.x** installed on your system.
+* **Python 3.x** (Compatible with `python`, `python3`, or `py` commands).
 * A running instance of [Spoolman](https://github.com/Donkie/Spoolman).
 
 ## 📥 Installation
 
-1.  Download the `spoolman_syncer.py` script.
-2.  Place it in a folder where you want to keep your filament profiles.
+1.  Download `spoolman_syncer.py`.
+2.  Place it in a dedicated directory (e.g., `~/3dprint-tools/`).
 
-## 🛠️ Usage
+## 🛠️ Usage Guide
 
-Open your terminal or command prompt in the script's folder.
-
-### Basic Run
-Generates the JSON files in the `spools/` folder but does **not** install them to the slicer.
+### 1. Basic Generation
+Fetches data and generates profiles in the local `spools/` folder. Safe to run for testing.
 ```bash
 python spoolman_syncer.py --ip 192.168.1.50 --port 7912
 ```
 
-### Install to OrcaSlicer
-Generates files and immediately copies them to the OrcaSlicer user directory.
+### 2. Install to Slicer
+Generates profiles and installs them directly to the Slicer's user directory.
 ```bash
 python spoolman_syncer.py --ip 192.168.1.50 --apply orca
-```
-
-### Install to BambuStudio
-```bash
+# OR
 python spoolman_syncer.py --ip 192.168.1.50 --apply bambu
 ```
 
-### Clean Install (Delete old files first)
-Useful if you have removed spools from Spoolman and want them gone from the slicer too.
+### 3. Clean Install (Recommended)
+Use `--delete-first` to wipe the Slicer's filament folder before installing. This ensures spools deleted from Spoolman are removed from the Slicer.
 ```bash
 python spoolman_syncer.py --ip 192.168.1.50 --apply orca --delete-first
 ```
 
-### Command Line Arguments
+### 4. Maintenance Commands
+* `--clean-spool`: Deletes the local `spools/` output folder before running.
+* `--clean`: **Factory Reset**. Deletes the tool source, the virtual environment, and output files. Use this if the script behaves unexpectedly or you want to reinstall the tool.
+
+### Argument Reference
 
 | Argument | Default | Description |
 | :--- | :--- | :--- |
-| `--ip` | `localhost` | The IP address of your Spoolman server. |
-| `--port` | `7912` | The port of your Spoolman server. |
-| `--apply` | `None` | Automatically install profiles. Options: `orca`, `bambu`. |
-| `--delete-first` | `False` | Delete all existing JSON files in the slicer folder before copying new ones. |
+| `--ip` | `localhost` | Spoolman Server IP address. |
+| `--port` | `7912` | Spoolman Server Port. |
+| `--apply` | `None` | Target Slicer (`orca` or `bambu`). |
+| `--delete-first` | `False` | Wipes target Slicer directory before copying. |
+| `--clean-spool` | `False` | Clears local generated files before execution. |
+| `--clean` | `False` | Deletes all tool/env folders and exits. |
 
 ---
 
-## ⚙️ Klipper Configuration
+## ⚙️ Klipper Integration
 
-This script injects `M555 S={ID}` into your filament start G-code. To make Klipper understand this command and notify Spoolman, add the following macros to your `printer.cfg`.
+To utilize the injected `M555 S={ID}` command, add the following macros to your Klipper `printer.cfg`.
 
-**⚠️ Note:** The configuration below is currently verified principally for the **Anycubic Kobra S1**. Configurations for other printers (like Bambu Lab) will be added in future updates.
+> **⚠️ Hardware Note:** Validated for **Anycubic Kobra S1**. Bambu Lab integration pending.
 
 ```ini
 [gcode_macro M555]
@@ -91,20 +94,9 @@ gcode:
     {% endif %}
 ```
 
-*> **Note:** You must have Spoolman configured in your `moonraker.conf` for `action_call_remote_method` to work.*
-
-## 📂 How it Works
-
-1.  **Environment Check**: The script checks if the `spoolman2slicer_tool` folder and the local `.venv` exist.
-2.  **Auto-Setup**: If missing, it downloads the source code from GitHub, extracts it, creates a virtual environment, and installs `requirements.txt`.
-3.  **Generation**: It runs the generator inside the virtual environment to fetch data from Spoolman and saves it to the `spools/` folder.
-4.  **Patching**: It iterates through every generated `.json` file:
-    * Fixes "Inherits" fields to ensure compatibility with standard slicer profiles.
-    * Extracts the `filament_settings_id` (Spool ID).
-    * **Appends** `M555 S={ID}` to the start G-code (preserving existing commands like `ASSERT_ACTIVE_FILAMENT`).
-5.  **Deployment**: If `--apply` is used, files are copied to your OS-specific Slicer configuration path.
+*Note: Ensure `[spoolman]` is configured in your `moonraker.conf`.*
 
 ## 🏆 Credits
 
-* **Spoolman Syncer** created by **Nebulino**.
-* Based on the generator logic from [bofh69/spoolman2slicer](https://github.com/bofh69/spoolman2slicer).
+* **Author**: Nebulino
+* **Core Generator**: Based on [bofh69/spoolman2slicer](https://github.com/bofh69/spoolman2slicer).
