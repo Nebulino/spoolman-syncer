@@ -13,6 +13,7 @@
     * Downloads the generator repository if missing.
     * Creates a local isolated `venv` (virtual environment).
     * Installs all necessary dependencies.
+    * **Smart Updates**: Automatically detects if dependencies change in future versions and updates the environment.
 * **Smart Material Mapping**: Automatically fixes JSON inheritance issues (e.g., mapping "PLA+/Pro" to "Generic PLA" to prevent slicer errors).
 * **Klipper ID Injection**: Injects a custom `M555 S={ID}` G-code command into every filament start G-code. This allows Klipper to automatically track exactly which spool you are using.
 * **Auto-Deployment**: Can automatically copy the generated profiles directly to your slicer's configuration folder.
@@ -32,7 +33,7 @@
 Open your terminal or command prompt in the script's folder.
 
 ### Basic Run
-Generates the JSON files in the current folder but does **not** install them to the slicer.
+Generates the JSON files in the `spools/` folder but does **not** install them to the slicer.
 ```bash
 python spoolman_syncer.py --ip 192.168.1.50 --port 7912
 ```
@@ -48,6 +49,12 @@ python spoolman_syncer.py --ip 192.168.1.50 --apply orca
 python spoolman_syncer.py --ip 192.168.1.50 --apply bambu
 ```
 
+### Clean Install (Delete old files first)
+Useful if you have removed spools from Spoolman and want them gone from the slicer too.
+```bash
+python spoolman_syncer.py --ip 192.168.1.50 --apply orca --delete-first
+```
+
 ### Command Line Arguments
 
 | Argument | Default | Description |
@@ -55,12 +62,15 @@ python spoolman_syncer.py --ip 192.168.1.50 --apply bambu
 | `--ip` | `localhost` | The IP address of your Spoolman server. |
 | `--port` | `7912` | The port of your Spoolman server. |
 | `--apply` | `None` | Automatically install profiles. Options: `orca`, `bambu`. |
+| `--delete-first` | `False` | Delete all existing JSON files in the slicer folder before copying new ones. |
 
 ---
 
 ## ⚙️ Klipper Configuration
 
-This script injects `M555 S={ID}` into your filament start G-code. To make Klipper understand this command and notify Spoolman, add the following macros to your `printer.cfg`:
+This script injects `M555 S={ID}` into your filament start G-code. To make Klipper understand this command and notify Spoolman, add the following macros to your `printer.cfg`.
+
+**⚠️ Note:** The configuration below is currently verified principally for the **Anycubic Kobra S1**. Configurations for other printers (like Bambu Lab) will be added in future updates.
 
 ```ini
 [gcode_macro M555]
@@ -85,9 +95,9 @@ gcode:
 
 ## 📂 How it Works
 
-1.  **Environment Check**: The script checks if the `spoolman2slicer_tool` folder and the local `venv` exist.
+1.  **Environment Check**: The script checks if the `spoolman2slicer_tool` folder and the local `.venv` exist.
 2.  **Auto-Setup**: If missing, it downloads the source code from GitHub, extracts it, creates a virtual environment, and installs `requirements.txt`.
-3.  **Generation**: It runs the generator inside the virtual environment to fetch data from Spoolman.
+3.  **Generation**: It runs the generator inside the virtual environment to fetch data from Spoolman and saves it to the `spools/` folder.
 4.  **Patching**: It iterates through every generated `.json` file:
     * Fixes "Inherits" fields to ensure compatibility with standard slicer profiles.
     * Extracts the `filament_settings_id` (Spool ID).
