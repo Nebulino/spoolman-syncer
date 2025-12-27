@@ -10,6 +10,7 @@ import urllib.request
 import urllib.error
 import zipfile
 import re
+import hashlib  # <--- Added for smart dependency checking
 
 # --- Configuration ---
 DEFAULT_IP = "localhost"
@@ -42,10 +43,52 @@ def get_venv_python():
     else:
         return os.path.join(VENV_DIR, "bin", "python")
 
+def ensure_dependencies_updated():
+    """
+    Checks if requirements.txt has changed since last install.
+    If changed (or never installed), runs pip install.
+    """
+    req_file = os.path.join(TOOL_DIR, "requirements.txt")
+    hash_file = os.path.join(TOOL_DIR, ".installed_hash")
+
+    if not os.path.exists(req_file):
+        return # No requirements to install
+
+    # 1. Calculate current hash of requirements.txt
+    with open(req_file, 'rb') as f:
+        current_hash = hashlib.md5(f.read()).hexdigest()
+
+    # 2. Read stored hash (if it exists)
+    stored_hash = ""
+    if os.path.exists(hash_file):
+        with open(hash_file, 'r') as f:
+            stored_hash = f.read().strip()
+
+    # 3. Compare and Install if needed
+    if current_hash != stored_hash:
+        print("📦 Dependencies changed or missing. Installing/Updating...")
+        venv_python = get_venv_python()
+        try:
+            # Install requirements
+            subprocess.check_call([venv_python, "-m", "pip", "install", "-r", req_file])
+
+            # Save new hash so we don't run this next time
+            with open(hash_file, 'w') as f:
+                f.write(current_hash)
+            print("✅ Dependencies updated.")
+        except Exception as e:
+            print(f"❌ Failed to install dependencies: {e}")
+            sys.exit(1)
+    else:
+        # Debug print (optional, mostly silent)
+        # print("✅ Dependencies are up to date.")
+        pass
+
 def check_and_setup_tool():
     """
     Checks if the tool directory AND the venv exist.
     If not, asks to download/install them.
+    Always ensures dependencies are up to date.
     """
     print("🔎 Checking for generator module and venv...")
 
@@ -58,7 +101,6 @@ def check_and_setup_tool():
         if not venv_exists:
             print(f"⚠️  Virtual environment '{VENV_DIR}' is missing.")
 
-        # Interactive prompt
         try:
             choice = input(f"   Would you like to setup them now? [Y/n]: ").strip().lower()
         except KeyboardInterrupt:
@@ -74,8 +116,11 @@ def check_and_setup_tool():
         print(f"✅ Found local tool in: {TOOL_DIR}")
         print(f"✅ Found virtual environment in: {VENV_DIR}")
 
+    # AFTER checking/installing folders, ALWAYS check if requirements need update
+    ensure_dependencies_updated()
+
 def setup_tool(tool_exists, venv_exists):
-    """Downloads ZIP, extracts it, creates venv, and installs reqs."""
+    """Downloads ZIP, extracts it, and creates venv."""
 
     # 1. Download & Extract Tool (if missing)
     if not tool_exists:
@@ -88,14 +133,12 @@ def setup_tool(tool_exists, venv_exists):
             with zipfile.ZipFile(zip_name, 'r') as zip_ref:
                 zip_ref.extractall("temp_extract")
 
-            # Move extracted folder contents to TOOL_DIR
             extracted_root = os.path.join("temp_extract", os.listdir("temp_extract")[0])
 
             if os.path.exists(TOOL_DIR):
                 shutil.rmtree(TOOL_DIR)
             shutil.move(extracted_root, TOOL_DIR)
 
-            # Cleanup
             os.remove(zip_name)
             shutil.rmtree("temp_extract")
             print(f"✅ Extracted to {TOOL_DIR}")
@@ -113,17 +156,9 @@ def setup_tool(tool_exists, venv_exists):
             print(f"❌ Failed to create venv: {e}")
             sys.exit(1)
 
-    # 3. Install Requirements into Venv
-    req_file = os.path.join(TOOL_DIR, "requirements.txt")
-    if os.path.exists(req_file):
-        print("📦 Installing dependencies into venv...")
-        venv_python = get_venv_python()
-        try:
-            subprocess.check_call([venv_python, "-m", "pip", "install", "-r", req_file])
-            print("✅ Dependencies installed.")
-        except Exception as e:
-            print(f"❌ Failed to install dependencies: {e}")
-            sys.exit(1)
+    # Note: We removed the direct pip install from here because
+    # check_and_setup_tool() now calls ensure_dependencies_updated()
+    # immediately after this function finishes.
 
 def construct_and_validate_url(ip, port):
     """Builds URL and validates connectivity."""
@@ -172,7 +207,6 @@ def run_spoolman_generator(valid_url):
     """Executes the module using the VENV python, outputting to OUTPUT_DIR."""
     print(f"🚀 Executing module from {TOOL_DIR}...")
 
-    # Ensure output directory exists
     if not os.path.exists(OUTPUT_DIR):
         os.makedirs(OUTPUT_DIR)
         print(f"📁 Created output directory: {OUTPUT_DIR}")
@@ -183,7 +217,7 @@ def run_spoolman_generator(valid_url):
     cmd = [
         venv_python, "-m", "spoolman2slicer",
         "-s", "orcaslicer",
-        "-d", os.path.abspath(OUTPUT_DIR), # Use absolute path to be safe
+        "-d", os.path.abspath(OUTPUT_DIR),
         "-u", valid_url
     ]
 
@@ -202,7 +236,6 @@ def fix_json_files():
     print(f"🔧 Fixing JSON files in '{OUTPUT_DIR}'...")
     count = 0
 
-    # Look inside the OUTPUT_DIR now
     search_path = os.path.join(OUTPUT_DIR, "*.json")
 
     for filename in glob.glob(search_path):
@@ -297,11 +330,9 @@ def deploy_files(target_slicer, wipe_destination=False):
 
     print(f"📦 Deploying to {target_slicer}...")
     count = 0
-    # Search in OUTPUT_DIR now
-    search_path = os.path.join(OUTPUT_DIR, "*.json")
 
+    search_path = os.path.join(OUTPUT_DIR, "*.json")
     for filename in glob.glob(search_path):
-        # We need the base filename (e.g., "spool_1.json") to construct destination path
         base_name = os.path.basename(filename)
         shutil.copy(filename, os.path.join(dest_path, base_name))
         count += 1
@@ -317,7 +348,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    # 1. Setup Module & Venv
+    # 1. Setup Module & Venv (and check/update dependencies)
     check_and_setup_tool()
 
     # 2. Check Network
