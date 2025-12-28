@@ -377,6 +377,7 @@ def fix_json_files():
             if "filament_settings_id" in data and len(data["filament_settings_id"]) > 0:
                 spool_id = data["filament_settings_id"][0]
 
+            # Fallback to regex if ID wasn't in settings
             if not spool_id and original_gcode_str:
                 match = re.search(r"ID=(\d+)", original_gcode_str)
                 if match:
@@ -397,12 +398,9 @@ def fix_json_files():
             # Inject G-Code
             if spool_id:
                 new_cmd = f"; filament start gcode\nM555 S={spool_id}"
-                if original_gcode_str:
-                    combined_gcode = f"{original_gcode_str}\n{new_cmd}"
-                    new_data["filament_start_gcode"] = [combined_gcode]
-                else:
-                    new_data["filament_start_gcode"] = [new_cmd]
+                new_data["filament_start_gcode"] = [new_cmd]
             else:
+                # Keep original if no ID found
                 if "filament_start_gcode" in data:
                     new_data["filament_start_gcode"] = data["filament_start_gcode"]
 
